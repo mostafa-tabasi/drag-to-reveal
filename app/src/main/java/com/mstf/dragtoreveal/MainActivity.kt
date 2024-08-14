@@ -16,8 +16,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             DragToRevealTheme {
                 DragToReveal(
+                    instructionSwipingText = "Swipe down to reveal",
+                    instructionReleaseText = "Release to reveal",
                     contentToReveal = {
-                        Text(text = "Revealing Content", Modifier.padding(8.dp))
+                        Text(text = "Revealed Content", Modifier.padding(8.dp))
                     },
                     content = {
                         Text(
