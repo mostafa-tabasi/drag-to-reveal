@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mstf.dragtoreveal.ui.theme.DragToRevealTheme
 
@@ -16,9 +17,15 @@ class MainActivity : ComponentActivity() {
             DragToRevealTheme {
                 DragToReveal(
                     contentToReveal = {
-                        Text(text = "Hello World!", Modifier.padding(8.dp))
+                        Text(text = "Revealing Content", Modifier.padding(8.dp))
                     },
-                    content = {},
+                    content = {
+                        Text(
+                            text = "Hello World!",
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    },
                 )
             }
         }
