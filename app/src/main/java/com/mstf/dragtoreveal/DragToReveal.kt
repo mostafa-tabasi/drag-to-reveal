@@ -2,6 +2,7 @@ package com.mstf.dragtoreveal
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -16,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,6 +46,7 @@ fun DragToReveal(
     val density = LocalDensity.current
 
     var isContentRevealed by remember { mutableStateOf(false) }
+    var isDragging by remember { mutableStateOf(false) }
 
     var revealingLayoutHeight by remember { mutableStateOf(0.dp) }
 
@@ -54,13 +55,35 @@ fun DragToReveal(
 
     val minHeightToReveal = remember { 75.dp }
 
+    var contentToRevealHeight by remember { mutableStateOf(0.dp) }
+    var isContentToRevealMeasured by remember { mutableStateOf(false) }
+    val animatedContentToRevealHeight by animateDpAsState(
+        targetValue = revealingLayoutHeight,
+        label = "hidden_content_height",
+    )
+
+    // Draw the content that needs to be revealed only once
+    // to measure the height (this can't be seen)
+    if (!isContentToRevealMeasured) {
+        Box(modifier = Modifier.onSizeChanged {
+            contentToRevealHeight = with(density) { it.height.toDp() }
+            isContentToRevealMeasured = true
+        }) { contentToReveal() }
+    }
+
     Box(modifier = modifier
         .fillMaxSize()
         .pointerInput(true) {
             detectVerticalDragGestures(
+                onDragStart = {
+                    isDragging = true
+                },
                 onDragEnd = {
+                    isDragging = false
+
                     if (revealingLayoutHeight >= minHeightToReveal) {
                         isContentRevealed = true
+                        revealingLayoutHeight = contentToRevealHeight
                     } else {
                         isContentRevealed = false
                         revealingLayoutHeight = 0.dp
@@ -78,9 +101,9 @@ fun DragToReveal(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(
-                    if (isContentRevealed) Modifier.wrapContentHeight()
-                    else Modifier.height(revealingLayoutHeight)
+                .height(
+                    if (isDragging) revealingLayoutHeight
+                    else animatedContentToRevealHeight
                 )
                 .background(Color.Gray)
                 .onSizeChanged {
