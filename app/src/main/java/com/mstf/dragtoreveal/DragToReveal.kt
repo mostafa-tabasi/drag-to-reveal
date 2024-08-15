@@ -1,5 +1,6 @@
 package com.mstf.dragtoreveal
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlin.math.pow
 
@@ -82,22 +84,26 @@ fun DragToReveal(
         ) {
             if (isContentRevealed) contentToReveal()
             else {
-                Text(
-                    text =
-                    if (revealingLayoutHeight < minHeightToReveal) instructionSwipingText
-                    else instructionReleaseText,
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .graphicsLayer {
-                            alpha =
-                                powerCurveInterpolate(
+                AnimatedContent(
+                    targetState = revealingLayoutHeight < minHeightToReveal,
+                    label = "instruction_text",
+                ) {
+                    Text(
+                        text = if (it) instructionSwipingText else instructionReleaseText,
+                        modifier = Modifier
+                            .padding(bottom = 8.dp)
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                alpha = powerCurveInterpolate(
                                     0f,
                                     1f,
                                     (revealingLayoutHeight / minHeightToReveal).coerceIn(0f, 1f),
                                     4f,
                                 )
-                        }
-                )
+                            },
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
 
