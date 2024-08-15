@@ -1,6 +1,13 @@
 package com.mstf.dragtoreveal
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
@@ -85,11 +92,28 @@ fun DragToReveal(
             if (isContentRevealed) contentToReveal()
             else {
                 AnimatedContent(
-                    targetState = revealingLayoutHeight < minHeightToReveal,
+                    targetState = if (revealingLayoutHeight < minHeightToReveal)
+                        instructionSwipingText else instructionReleaseText,
+                    transitionSpec = {
+                        if (targetState == instructionReleaseText) {
+                            // If the target text is the instruction release text, it slides up and fades in
+                            // while the initial text (instruction swiping text) slides up and fades out.
+                            slideInVertically { height -> height } + fadeIn(tween(500)) togetherWith
+                                    slideOutVertically { height -> -height } + fadeOut(tween(200))
+                        } else {
+                            // If the target text is the instruction swiping text, it slides down and fades in
+                            // while the initial text (instruction release text) slides down and fades out.
+                            slideInVertically { height -> -height } + fadeIn(tween(500)) togetherWith
+                                    slideOutVertically { height -> height } + fadeOut(tween(100))
+                        }.using(
+                            // Disable clipping since the faded slide-in/out should be displayed out of bounds.
+                            SizeTransform(clip = false)
+                        )
+                    },
                     label = "instruction_text",
-                ) {
+                ) { target ->
                     Text(
-                        text = if (it) instructionSwipingText else instructionReleaseText,
+                        text = target,
                         modifier = Modifier
                             .padding(bottom = 8.dp)
                             .fillMaxWidth()
@@ -97,7 +121,8 @@ fun DragToReveal(
                                 alpha = powerCurveInterpolate(
                                     0f,
                                     1f,
-                                    (revealingLayoutHeight / minHeightToReveal).coerceIn(0f, 1f),
+                                    (revealingLayoutHeight / minHeightToReveal.div(1.2f))
+                                        .coerceIn(0f, 1f),
                                     4f,
                                 )
                             },
