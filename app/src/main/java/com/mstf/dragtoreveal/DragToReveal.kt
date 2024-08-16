@@ -1,5 +1,10 @@
 package com.mstf.dragtoreveal
 
+import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.animateDpAsState
@@ -19,6 +24,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -43,7 +50,23 @@ fun DragToReveal(
     contentToReveal: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    val context = LocalContext.current
     val density = LocalDensity.current
+
+    val vibrator = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager =
+                context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+    }
+
+    var revealStateToggle by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(revealStateToggle) {
+        vibrate(revealStateToggle, vibrator)
+    }
 
     var isContentRevealed by remember { mutableStateOf(false) }
     var isDragging by remember { mutableStateOf(false) }
@@ -93,6 +116,21 @@ fun DragToReveal(
                     revealingLayoutHeight += dragAmount
                         .div(5)
                         .toDp()
+
+                    if (
+                        dragAmount > 0 &&
+                        revealingLayoutHeight >= minHeightToReveal
+                    ) {
+                        revealStateToggle = true
+                    }
+                    if (
+                        dragAmount < 0 &&
+                        revealingLayoutHeight < minHeightToReveal &&
+                        revealStateToggle != null
+                    ) {
+                        revealStateToggle = false
+                    }
+
                 }
             )
         }) {
@@ -161,6 +199,18 @@ fun DragToReveal(
                 .offset(y = revealedLayoutHeight),
         ) { content() }
     }
+}
+
+private fun vibrate(revealStateToggle: Boolean?, vibrator: Vibrator) {
+    if (revealStateToggle == null) return
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+
+    vibrator.vibrate(
+        VibrationEffect.createOneShot(
+            10,
+            VibrationEffect.DEFAULT_AMPLITUDE,
+        )
+    )
 }
 
 fun powerCurveInterpolate(start: Float, end: Float, t: Float, power: Float): Float {
