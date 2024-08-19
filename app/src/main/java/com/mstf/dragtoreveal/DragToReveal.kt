@@ -37,6 +37,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlin.math.pow
@@ -44,9 +45,10 @@ import kotlin.math.pow
 
 @Composable
 fun DragToReveal(
+    modifier: Modifier = Modifier,
+    instructionTextColor: Color = Color.White,
     instructionSwipingText: String,
     instructionReleaseText: String,
-    modifier: Modifier = Modifier,
     contentToReveal: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -188,6 +190,8 @@ fun DragToReveal(
                                 )
                             },
                         textAlign = TextAlign.Center,
+                        color = instructionTextColor,
+                        fontWeight = FontWeight.Bold,
                     )
                 }
             }
