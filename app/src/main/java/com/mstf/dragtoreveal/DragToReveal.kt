@@ -17,10 +17,11 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -90,52 +91,61 @@ fun DragToReveal(
     // Draw the content that needs to be revealed only once
     // to measure the height (this can't be seen)
     if (!isContentToRevealMeasured) {
-        Box(modifier = Modifier.onSizeChanged {
-            contentToRevealHeight = with(density) { it.height.toDp() }
-            isContentToRevealMeasured = true
-        }) { contentToReveal() }
+        Box(modifier = Modifier
+            .heightIn(min = 0.dp, max = 350.dp)
+            .onSizeChanged {
+                contentToRevealHeight = with(density) { it.height.toDp() }
+                isContentToRevealMeasured = true
+            }) { contentToReveal() }
     }
 
-    Box(modifier = modifier
-        .fillMaxSize()
-        .pointerInput(true) {
-            detectVerticalDragGestures(
-                onDragStart = {
-                    isDragging = true
-                },
-                onDragEnd = {
-                    isDragging = false
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .then(
+                if (!isContentRevealed) {
+                    // We only need the drag detection when the hidden layout isn't still revealed
+                    Modifier.pointerInput(true) {
+                        detectVerticalDragGestures(
+                            onDragStart = {
+                                isDragging = true
+                            },
+                            onDragEnd = {
+                                isDragging = false
 
-                    if (revealingLayoutHeight >= minHeightToReveal) {
-                        isContentRevealed = true
-                        revealingLayoutHeight = contentToRevealHeight
-                    } else {
-                        isContentRevealed = false
-                        revealingLayoutHeight = 0.dp
-                    }
-                },
-                onVerticalDrag = { _, dragAmount: Float ->
-                    revealingLayoutHeight += dragAmount
-                        .div(5)
-                        .toDp()
+                                if (revealingLayoutHeight >= minHeightToReveal) {
+                                    isContentRevealed = true
+                                    revealingLayoutHeight = contentToRevealHeight
+                                } else {
+                                    isContentRevealed = false
+                                    revealingLayoutHeight = 0.dp
+                                }
+                            },
+                            onVerticalDrag = { _, dragAmount: Float ->
+                                revealingLayoutHeight += dragAmount
+                                    .div(5)
+                                    .toDp()
 
-                    if (
-                        dragAmount > 0 &&
-                        revealingLayoutHeight >= minHeightToReveal
-                    ) {
-                        revealStateToggle = true
-                    }
-                    if (
-                        dragAmount < 0 &&
-                        revealingLayoutHeight < minHeightToReveal &&
-                        revealStateToggle != null
-                    ) {
-                        revealStateToggle = false
-                    }
+                                if (
+                                    dragAmount > 0 &&
+                                    revealingLayoutHeight >= minHeightToReveal
+                                ) {
+                                    revealStateToggle = true
+                                }
+                                if (
+                                    dragAmount < 0 &&
+                                    revealingLayoutHeight < minHeightToReveal &&
+                                    revealStateToggle != null
+                                ) {
+                                    revealStateToggle = false
+                                }
 
-                }
+                            }
+                        )
+                    }
+                } else Modifier
             )
-        }) {
+    ) {
 
         // Content that needs to be revealed on top
         Box(
@@ -200,7 +210,7 @@ fun DragToReveal(
         // The rest of the content that is always revealed
         Box(
             modifier = modifier
-                .offset(y = revealedLayoutHeight),
+                .weight(1f),
         ) { content() }
     }
 }
