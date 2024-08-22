@@ -46,8 +46,24 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     },
-                    content = {
-                        LazyColumn {
+                    content = { lazyListState, scrollState ->
+                        /*
+                        Column(
+                            modifier = Modifier.verticalScroll(scrollState),
+                        ) {
+                            (1..30).map {
+                                Text(
+                                    text = "Hello World! #$it",
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(8.dp)
+                                )
+                            }
+                        }
+                        */
+
+                        LazyColumn(
+                            state = lazyListState,
+                        ) {
                             items(
                                 count = 30,
                                 itemContent = {

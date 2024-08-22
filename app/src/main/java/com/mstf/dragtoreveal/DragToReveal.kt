@@ -1,5 +1,6 @@
 package com.mstf.dragtoreveal
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.os.VibrationEffect
@@ -14,8 +15,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +24,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,8 +36,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -44,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.pow
 
 
+@SuppressLint("ReturnFromAwaitPointerEventScope")
 @Composable
 fun DragToReveal(
     modifier: Modifier = Modifier,
@@ -51,7 +61,7 @@ fun DragToReveal(
     instructionSwipingText: String,
     instructionReleaseText: String,
     contentToReveal: @Composable () -> Unit,
-    content: @Composable () -> Unit,
+    content: @Composable (LazyListState, ScrollState) -> Unit,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -99,52 +109,85 @@ fun DragToReveal(
             }) { contentToReveal() }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .then(
-                if (!isContentRevealed) {
-                    // We only need the drag detection when the hidden layout isn't still revealed
-                    Modifier.pointerInput(true) {
-                        detectVerticalDragGestures(
-                            onDragStart = {
-                                isDragging = true
-                            },
-                            onDragEnd = {
-                                isDragging = false
+    val lazyListState = rememberLazyListState()
+    val scrollState = rememberScrollState()
 
-                                if (revealingLayoutHeight >= minHeightToReveal) {
-                                    isContentRevealed = true
-                                    revealingLayoutHeight = contentToRevealHeight
-                                } else {
-                                    isContentRevealed = false
-                                    revealingLayoutHeight = 0.dp
-                                }
-                            },
-                            onVerticalDrag = { _, dragAmount: Float ->
-                                revealingLayoutHeight += dragAmount
-                                    .div(5)
-                                    .toDp()
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                println("onPreScroll, available: ${available.y}")
+                println("onPreScroll, LazyListState, canScrollForward? ${lazyListState.canScrollForward} / canScrollBackward? ${lazyListState.canScrollBackward}")
+                println("onPreScroll, ScrollState, canScrollForward? ${scrollState.canScrollForward} / canScrollBackward? ${scrollState.canScrollBackward}")
 
-                                if (
-                                    dragAmount > 0 &&
-                                    revealingLayoutHeight >= minHeightToReveal
-                                ) {
-                                    revealStateToggle = true
-                                }
-                                if (
-                                    dragAmount < 0 &&
-                                    revealingLayoutHeight < minHeightToReveal &&
-                                    revealStateToggle != null
-                                ) {
-                                    revealStateToggle = false
-                                }
+                if (isContentRevealed) return Offset.Zero
+                if (lazyListState.canScrollBackward || scrollState.canScrollBackward) return Offset.Zero
+                if (!isDragging) return Offset.Zero
 
+                val dragAmount = available.y
+                revealingLayoutHeight += with(density) {
+                    dragAmount.div(5).toDp()
+                }
+
+                if (
+                    dragAmount > 0 &&
+                    revealingLayoutHeight >= minHeightToReveal
+                ) {
+                    revealStateToggle = true
+                }
+                if (
+                    dragAmount < 0 &&
+                    revealingLayoutHeight < minHeightToReveal &&
+                    revealStateToggle != null
+                ) {
+                    revealStateToggle = false
+                }
+
+                return Offset(
+                    x = 0f,
+                    y =
+                    if (revealingLayoutHeight <= 0.dp) 0f
+                    else dragAmount,
+                )
+            }
+        }
+    }
+
+    val updatedModifier = modifier
+        .nestedScroll(nestedScrollConnection)
+        .pointerInput(Unit) {
+            awaitPointerEventScope {
+                while (true) {
+                    val event = awaitPointerEvent()
+                    when (event.type) {
+                        PointerEventType.Press -> {
+                            println("======= event: ${event.type}")
+                            isDragging = true
+                        }
+
+                        PointerEventType.Release -> {
+                            println("======= event: ${event.type}")
+
+                            isDragging = false
+                            if (revealingLayoutHeight >= minHeightToReveal) {
+                                isContentRevealed = true
+                                revealingLayoutHeight = contentToRevealHeight
+                            } else {
+                                isContentRevealed = false
+                                revealingLayoutHeight = 0.dp
                             }
-                        )
+                        }
+
+                        PointerEventType.Move -> {
+                            // TODO: all the logic must be implemented here
+                            // println("======= event: ${event.changes[0].let { it.position.y - it.previousPosition.y }}")
+                        }
                     }
-                } else Modifier
-            )
+                }
+            }
+        }
+
+    Column(
+        modifier = updatedModifier.fillMaxSize(),
     ) {
 
         // Content that needs to be revealed on top
@@ -211,7 +254,7 @@ fun DragToReveal(
         Box(
             modifier = modifier
                 .weight(1f),
-        ) { content() }
+        ) { content(lazyListState, scrollState) }
     }
 }
 
