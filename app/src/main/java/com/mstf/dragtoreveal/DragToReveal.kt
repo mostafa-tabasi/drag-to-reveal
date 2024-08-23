@@ -76,6 +76,8 @@ fun DragToReveal(
         }
     }
 
+    // a toggle for changing reveal state
+    // shows that the user dragged enough to reveal the hidden content
     var revealStateToggle by remember { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(revealStateToggle) {
         vibrate(revealStateToggle, vibrator)
@@ -83,31 +85,29 @@ fun DragToReveal(
 
     var isContentRevealed by remember { mutableStateOf(false) }
     var isDragging by remember { mutableStateOf(false) }
-    var isTouchDetectorEnable by remember { mutableStateOf(false) }
     var isTouchingScrollable by remember { mutableStateOf(false) }
 
+    // height of the hidden layout while being dragged
     var revealingLayoutHeight by remember { mutableStateOf(0.dp) }
-
-    var revealedLayoutWidth by remember { mutableStateOf(0.dp) }
-    var revealedLayoutHeight by remember { mutableStateOf(0.dp) }
 
     val minHeightToReveal = remember { 75.dp }
 
     var contentToRevealHeight by remember { mutableStateOf(0.dp) }
-    var isContentToRevealMeasured by remember { mutableStateOf(false) }
-    val animatedContentToRevealHeight by animateDpAsState(
+    // an indicator that tells either the final height of the hidden layout is measured or not
+    var isContentToRevealHeightMeasured by remember { mutableStateOf(false) }
+    val contentToRevealAnimatedHeight by animateDpAsState(
         targetValue = revealingLayoutHeight,
         label = "hidden_content_height",
     )
 
-    // Draw the content that needs to be revealed only once
-    // to measure the height (this can't be seen)
-    if (!isContentToRevealMeasured) {
+    // Draw the content that needs to be revealed only once to measure the height (this can't be seen)
+    if (!isContentToRevealHeightMeasured) {
         Box(modifier = Modifier
+            // the maximum height considered for the revealed hidden layout
             .heightIn(min = 0.dp, max = 350.dp)
             .onSizeChanged {
                 contentToRevealHeight = with(density) { it.height.toDp() }
-                isContentToRevealMeasured = true
+                isContentToRevealHeightMeasured = true
             }) { contentToReveal() }
     }
 
@@ -119,13 +119,22 @@ fun DragToReveal(
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 val dragAmount = available.y
 
-                if (isTouchDetectorEnable) isTouchingScrollable = true
+                // whenever this scope is called it means user is touching over the scrollable view
+                // first we check if isDragging is true so fling event won't be considered as touching
+                if (isDragging) isTouchingScrollable = true
 
+
+                // if the hidden content is already revealed, don't need to start revealing process
                 if (isContentRevealed) return Offset.Zero
+                // to prevent revealing process with fling event
                 if (dragAmount >= 100) return Offset.Zero
+                // if the touching event is not dragging, don't have to start revealing
                 if (!isDragging) return Offset.Zero
+                // if the scrollable is not at the starting position, don't have to start revealing process
                 if (lazyListState.canScrollBackward || scrollState.canScrollBackward) return Offset.Zero
 
+                // calculating the amount we need to consume
+                // to prevent the scrollable layout from being scrolled
                 val calculatedRevealingLayoutHeight =
                     revealingLayoutHeight +
                             with(density) {
@@ -152,12 +161,10 @@ fun DragToReveal(
 
                         PointerEventType.Press -> {
                             isDragging = true
-                            isTouchDetectorEnable = true
                         }
 
                         PointerEventType.Release -> {
                             isDragging = false
-                            isTouchDetectorEnable = false
                             isTouchingScrollable = false
 
                             if (revealingLayoutHeight >= minHeightToReveal) {
@@ -174,8 +181,11 @@ fun DragToReveal(
                                 event.changes[0].let { it.position.y - it.previousPosition.y }
 
                             if (
+                            // if the hidden content is already revealed, don't need to start revealing process
                                 !isContentRevealed &&
+                                // to prevent revealing process with fling event
                                 dragAmount < 100 &&
+                                // the drag event must come from a non-scrollable
                                 (!isTouchingScrollable || (!lazyListState.canScrollBackward && !scrollState.canScrollBackward))
                             ) {
                                 revealingLayoutHeight += with(density) {
@@ -184,6 +194,7 @@ fun DragToReveal(
                                         .toDp()
                                 }
 
+                                // layout height shouldn't be negative
                                 if (revealingLayoutHeight < 0.dp) {
                                     revealingLayoutHeight = 0.dp
                                 }
@@ -194,6 +205,7 @@ fun DragToReveal(
                                 ) {
                                     revealStateToggle = true
                                 }
+
                                 if (
                                     dragAmount < 0 &&
                                     revealingLayoutHeight < minHeightToReveal &&
@@ -218,15 +230,11 @@ fun DragToReveal(
                 .fillMaxWidth()
                 .height(
                     if (isDragging) revealingLayoutHeight
-                    else animatedContentToRevealHeight
+                    else contentToRevealAnimatedHeight
                 )
                 // todo: get the color as a param
                 // turned the dragging background color to content background color with animation
-                .background(Color.Gray)
-                .onSizeChanged {
-                    revealedLayoutWidth = with(density) { it.width.toDp() }
-                    revealedLayoutHeight = with(density) { it.height.toDp() }
-                },
+                .background(Color.Gray),
             contentAlignment = if (isContentRevealed) Alignment.TopStart else Alignment.BottomCenter,
         ) {
             if (isContentRevealed) contentToReveal()
