@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import kotlin.math.pow
 
@@ -75,6 +76,9 @@ fun DragToReveal(
             context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
     }
+
+    // todo: should get this as a param
+    val maxRevealedLayoutHeight = remember { 350.dp }
 
     // a toggle for changing reveal state
     // shows that the user dragged enough to reveal the hidden content
@@ -104,13 +108,14 @@ fun DragToReveal(
     if (!isContentToRevealHeightMeasured) {
         Box(modifier = Modifier
             // the maximum height considered for the revealed hidden layout
-            .heightIn(min = 0.dp, max = 350.dp)
+            .heightIn(min = 0.dp, max = maxRevealedLayoutHeight)
             .onSizeChanged {
                 contentToRevealHeight = with(density) { it.height.toDp() }
                 isContentToRevealHeightMeasured = true
             }) { contentToReveal() }
     }
 
+    // scrollable object states that are needed for checking if the scrollable objects can get scrolled or not
     val lazyListState = rememberLazyListState()
     val scrollState = rememberScrollState()
 
@@ -127,7 +132,7 @@ fun DragToReveal(
                 // if the hidden content is already revealed, don't need to start revealing process
                 if (isContentRevealed) return Offset.Zero
                 // to prevent revealing process with fling event
-                if (dragAmount >= 100) return Offset.Zero
+                if (dragAmount >= 200) return Offset.Zero
                 // if the touching event is not dragging, don't have to start revealing
                 if (!isDragging) return Offset.Zero
                 // if the scrollable is not at the starting position, don't have to start revealing process
@@ -151,7 +156,7 @@ fun DragToReveal(
         }
     }
 
-    val updatedModifier = modifier
+    val dragDetectionModifier = Modifier
         .nestedScroll(nestedScrollConnection)
         .pointerInput(Unit) {
             awaitPointerEventScope {
@@ -181,23 +186,19 @@ fun DragToReveal(
                                 event.changes[0].let { it.position.y - it.previousPosition.y }
 
                             if (
-                            // if the hidden content is already revealed, don't need to start revealing process
+                                // if the hidden content is already revealed,
+                                // don't need to start revealing process
                                 !isContentRevealed &&
                                 // to prevent revealing process with fling event
-                                dragAmount < 100 &&
+                                dragAmount < 200 &&
                                 // the drag event must come from a non-scrollable
                                 (!isTouchingScrollable || (!lazyListState.canScrollBackward && !scrollState.canScrollBackward))
                             ) {
-                                revealingLayoutHeight += with(density) {
+                                revealingLayoutHeight = (revealingLayoutHeight + with(density) {
                                     dragAmount
                                         .div(5)
                                         .toDp()
-                                }
-
-                                // layout height shouldn't be negative
-                                if (revealingLayoutHeight < 0.dp) {
-                                    revealingLayoutHeight = 0.dp
-                                }
+                                }).coerceIn(0.dp, maxRevealedLayoutHeight)
 
                                 if (
                                     dragAmount > 0 &&
@@ -221,7 +222,7 @@ fun DragToReveal(
         }
 
     Column(
-        modifier = updatedModifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
     ) {
 
         // Content that needs to be revealed on top
@@ -284,7 +285,8 @@ fun DragToReveal(
 
         // The rest of the content that is always revealed
         Box(
-            modifier = modifier
+            modifier = dragDetectionModifier
+                .fillMaxWidth()
                 .weight(1f),
         ) { content(lazyListState, scrollState) }
     }
