@@ -83,6 +83,8 @@ fun DragToReveal(
 
     var isContentRevealed by remember { mutableStateOf(false) }
     var isDragging by remember { mutableStateOf(false) }
+    var isTouchDetectorEnable by remember { mutableStateOf(false) }
+    var isTouchingScrollable by remember { mutableStateOf(false) }
 
     var revealingLayoutHeight by remember { mutableStateOf(0.dp) }
 
@@ -115,37 +117,25 @@ fun DragToReveal(
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                println("onPreScroll, available: ${available.y}")
-                println("onPreScroll, LazyListState, canScrollForward? ${lazyListState.canScrollForward} / canScrollBackward? ${lazyListState.canScrollBackward}")
-                println("onPreScroll, ScrollState, canScrollForward? ${scrollState.canScrollForward} / canScrollBackward? ${scrollState.canScrollBackward}")
+                val dragAmount = available.y
+
+                if (isTouchDetectorEnable) isTouchingScrollable = true
 
                 if (isContentRevealed) return Offset.Zero
-                if (lazyListState.canScrollBackward || scrollState.canScrollBackward) return Offset.Zero
+                if (dragAmount >= 100) return Offset.Zero
                 if (!isDragging) return Offset.Zero
+                if (lazyListState.canScrollBackward || scrollState.canScrollBackward) return Offset.Zero
 
-                val dragAmount = available.y
-                revealingLayoutHeight += with(density) {
-                    dragAmount.div(5).toDp()
-                }
-
-                if (
-                    dragAmount > 0 &&
-                    revealingLayoutHeight >= minHeightToReveal
-                ) {
-                    revealStateToggle = true
-                }
-                if (
-                    dragAmount < 0 &&
-                    revealingLayoutHeight < minHeightToReveal &&
-                    revealStateToggle != null
-                ) {
-                    revealStateToggle = false
-                }
+                val calculatedRevealingLayoutHeight =
+                    revealingLayoutHeight +
+                            with(density) {
+                                dragAmount.div(5).toDp()
+                            }
 
                 return Offset(
                     x = 0f,
                     y =
-                    if (revealingLayoutHeight <= 0.dp) 0f
+                    if (calculatedRevealingLayoutHeight <= 0.dp) 0f
                     else dragAmount,
                 )
             }
@@ -159,15 +149,17 @@ fun DragToReveal(
                 while (true) {
                     val event = awaitPointerEvent()
                     when (event.type) {
+
                         PointerEventType.Press -> {
-                            println("======= event: ${event.type}")
                             isDragging = true
+                            isTouchDetectorEnable = true
                         }
 
                         PointerEventType.Release -> {
-                            println("======= event: ${event.type}")
-
                             isDragging = false
+                            isTouchDetectorEnable = false
+                            isTouchingScrollable = false
+
                             if (revealingLayoutHeight >= minHeightToReveal) {
                                 isContentRevealed = true
                                 revealingLayoutHeight = contentToRevealHeight
@@ -178,8 +170,38 @@ fun DragToReveal(
                         }
 
                         PointerEventType.Move -> {
-                            // TODO: all the logic must be implemented here
-                            // println("======= event: ${event.changes[0].let { it.position.y - it.previousPosition.y }}")
+                            val dragAmount =
+                                event.changes[0].let { it.position.y - it.previousPosition.y }
+
+                            if (
+                                !isContentRevealed &&
+                                dragAmount < 100 &&
+                                (!isTouchingScrollable || (!lazyListState.canScrollBackward && !scrollState.canScrollBackward))
+                            ) {
+                                revealingLayoutHeight += with(density) {
+                                    dragAmount
+                                        .div(5)
+                                        .toDp()
+                                }
+
+                                if (revealingLayoutHeight < 0.dp) {
+                                    revealingLayoutHeight = 0.dp
+                                }
+
+                                if (
+                                    dragAmount > 0 &&
+                                    revealingLayoutHeight >= minHeightToReveal
+                                ) {
+                                    revealStateToggle = true
+                                }
+                                if (
+                                    dragAmount < 0 &&
+                                    revealingLayoutHeight < minHeightToReveal &&
+                                    revealStateToggle != null
+                                ) {
+                                    revealStateToggle = false
+                                }
+                            }
                         }
                     }
                 }
@@ -198,6 +220,8 @@ fun DragToReveal(
                     if (isDragging) revealingLayoutHeight
                     else animatedContentToRevealHeight
                 )
+                // todo: get the color as a param
+                // turned the dragging background color to content background color with animation
                 .background(Color.Gray)
                 .onSizeChanged {
                     revealedLayoutWidth = with(density) { it.width.toDp() }
