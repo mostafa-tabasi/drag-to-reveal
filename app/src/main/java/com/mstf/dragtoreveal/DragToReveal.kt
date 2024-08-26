@@ -62,6 +62,8 @@ fun DragToReveal(
     instructionTextColor: Color = Color.White,
     instructionSwipingText: String,
     instructionReleaseText: String,
+    maxRevealedLayoutHeight: Dp = 350.dp,
+    revealingElasticityPower: Float = 3f,
     contentToReveal: @Composable () -> Unit,
     content: @Composable (LazyListState, ScrollState) -> Unit,
 ) {
@@ -77,11 +79,6 @@ fun DragToReveal(
             context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
     }
-
-    // todo: should get this as a param
-    val maxRevealedLayoutHeight = remember { 350.dp }
-    // todo: should get this as a param
-    val revealingElasticityPower: Float = remember { 3f }
 
     // a toggle for changing reveal state
     // shows that the user dragged enough to reveal the hidden content
@@ -271,7 +268,6 @@ fun DragToReveal(
     Column(
         modifier = modifier.fillMaxSize(),
     ) {
-
         // Content that needs to be revealed on top
         Box(
             modifier = Modifier
