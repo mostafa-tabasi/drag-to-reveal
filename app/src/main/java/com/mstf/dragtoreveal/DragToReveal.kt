@@ -7,6 +7,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -281,8 +282,17 @@ fun DragToReveal(
                 .background(Color.Gray),
             contentAlignment = if (isContentRevealed) Alignment.TopStart else Alignment.BottomCenter,
         ) {
-            if (isContentRevealed) contentToReveal()
-            else {
+            this@Column.AnimatedVisibility(
+                visible = isContentRevealed,
+                label = "hidden_content",
+                enter = fadeIn(tween(400)),
+                exit = fadeOut(),
+            ) {
+                contentToReveal()
+            }
+
+            if (!isContentRevealed) {
+                // instruction text composable
                 AnimatedContent(
                     targetState = if (revealingLayoutHeight < minHeightToReveal)
                         instructionSwipingText else instructionReleaseText,
