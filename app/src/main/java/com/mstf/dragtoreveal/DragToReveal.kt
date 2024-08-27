@@ -66,11 +66,22 @@ fun DragToReveal(
     instructionTextColor: Color = Color.Black,
     instructionSwipingText: String,
     instructionReleaseText: String,
+    minDragHeightToReveal: Dp = 75.dp,
     maxRevealedLayoutHeight: Dp = 350.dp,
-    revealingElasticityPower: Float = 3f,
+    dragElasticityLevel: Float = 4f,
     contentToReveal: @Composable () -> Unit,
     content: @Composable (LazyListState, ScrollState) -> Unit,
 ) {
+    require(minDragHeightToReveal >= 50.dp && minDragHeightToReveal <= 600.dp) {
+        "The amount of drag to reveal the content must be between 50dp and 600dp."
+    }
+    require(maxRevealedLayoutHeight <= 600.dp && maxRevealedLayoutHeight >= 50.dp) {
+        "The amount of height for revealed content must be between 50dp and 600dp."
+    }
+    require(dragElasticityLevel >= 1f) {
+        "Minimum amount of drag elasticity must be 1."
+    }
+
     val context = LocalContext.current
     val density = LocalDensity.current
 
@@ -100,8 +111,6 @@ fun DragToReveal(
 
     // height of the hidden layout while being dragged
     var revealingLayoutHeight by remember { mutableStateOf(0.dp) }
-
-    val minHeightToReveal = remember { 75.dp }
 
     var contentToRevealHeight by remember { mutableStateOf(0.dp) }
     // an indicator that tells either the final height of the hidden layout is measured or not
@@ -177,7 +186,7 @@ fun DragToReveal(
                     calculatedRevealingLayoutHeight = revealingLayoutHeight +
                             with(density) {
                                 dragAmount
-                                    .div(revealingElasticityPower)
+                                    .div(dragElasticityLevel)
                                     .toDp()
                             }
                 }
@@ -209,7 +218,7 @@ fun DragToReveal(
                             isTouchingScrollable = false
 
                             if (!isAfterRevealed) {
-                                if (revealingLayoutHeight >= minHeightToReveal) {
+                                if (revealingLayoutHeight >= minDragHeightToReveal) {
                                     isContentRevealed = true
                                     revealingLayoutHeight = contentToRevealHeight
                                 } else {
@@ -235,20 +244,20 @@ fun DragToReveal(
                                 revealingLayoutHeight = (revealingLayoutHeight +
                                         with(density) {
                                             dragAmount
-                                                .div(revealingElasticityPower)
+                                                .div(dragElasticityLevel)
                                                 .toDp()
                                         }).coerceIn(0.dp, maxRevealedLayoutHeight)
 
                                 if (
                                     dragAmount > 0 &&
-                                    revealingLayoutHeight >= minHeightToReveal
+                                    revealingLayoutHeight >= minDragHeightToReveal
                                 ) {
                                     revealStateToggle = true
                                 }
 
                                 if (
                                     dragAmount < 0 &&
-                                    revealingLayoutHeight < minHeightToReveal &&
+                                    revealingLayoutHeight < minDragHeightToReveal &&
                                     revealStateToggle != null
                                 ) {
                                     revealStateToggle = false
@@ -291,7 +300,7 @@ fun DragToReveal(
             this@Column.AnimatedVisibility(
                 visible = isContentRevealed,
                 label = "hidden_content",
-                enter = fadeIn(tween(400)),
+                enter = fadeIn(),
                 exit = fadeOut(),
             ) {
                 contentToReveal()
@@ -300,7 +309,7 @@ fun DragToReveal(
             if (!isContentRevealed) {
                 // instruction text composable
                 AnimatedContent(
-                    targetState = if (revealingLayoutHeight < minHeightToReveal)
+                    targetState = if (revealingLayoutHeight < minDragHeightToReveal)
                         instructionSwipingText else instructionReleaseText,
                     transitionSpec = {
                         if (targetState == instructionReleaseText) {
@@ -329,7 +338,7 @@ fun DragToReveal(
                                 alpha = powerCurveInterpolate(
                                     0f,
                                     1f,
-                                    (revealingLayoutHeight / minHeightToReveal.div(1.2f))
+                                    (revealingLayoutHeight / minDragHeightToReveal.div(1.2f))
                                         .coerceIn(0f, 1f),
                                     4f,
                                 )
