@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -173,8 +174,6 @@ fun DragToReveal(
                 } else {
                     // if the hidden content is already revealed, don't need to start revealing process
                     if (isContentRevealed) return Offset.Zero
-                    // to prevent revealing process with fling event
-                    if (dragAmount >= 200) return Offset.Zero
                     // if the touching event is not dragging (for example it's a fling event),
                     // don't have to start revealing
                     if (!isDragging) return Offset.Zero
@@ -201,6 +200,7 @@ fun DragToReveal(
         }
     }
 
+    var skipDragEventCounter by remember { mutableIntStateOf(0) }
     val dragDetectionModifier = Modifier
         .nestedScroll(nestedScrollConnection)
         .pointerInput(Unit) {
@@ -214,6 +214,7 @@ fun DragToReveal(
                         }
 
                         PointerEventType.Release -> {
+                            skipDragEventCounter = 0
                             isDragging = false
                             isTouchingScrollable = false
 
@@ -236,31 +237,36 @@ fun DragToReveal(
                             // if the hidden content is already revealed,
                             // don't need to start revealing process
                                 !isContentRevealed &&
-                                // to prevent revealing process with fling event
-                                dragAmount < 200 &&
                                 // the drag event must come from a non-scrollable
                                 (!isTouchingScrollable || (!lazyListState.canScrollBackward && !scrollState.canScrollBackward))
                             ) {
-                                revealingLayoutHeight = (revealingLayoutHeight +
-                                        with(density) {
-                                            dragAmount
-                                                .div(dragElasticityLevel)
-                                                .toDp()
-                                        }).coerceIn(0.dp, maxRevealedLayoutHeight)
+                                // we skip the first 10 drag event,
+                                // to prevent revealing process with fling event
+                                if (skipDragEventCounter < 10) {
+                                    skipDragEventCounter++
+                                } else {
+                                    //start the revealing process
+                                    revealingLayoutHeight = (revealingLayoutHeight +
+                                            with(density) {
+                                                dragAmount
+                                                    .div(dragElasticityLevel)
+                                                    .toDp()
+                                            }).coerceIn(0.dp, maxRevealedLayoutHeight)
 
-                                if (
-                                    dragAmount > 0 &&
-                                    revealingLayoutHeight >= minDragHeightToReveal
-                                ) {
-                                    revealStateToggle = true
-                                }
+                                    if (
+                                        dragAmount > 0 &&
+                                        revealingLayoutHeight >= minDragHeightToReveal
+                                    ) {
+                                        revealStateToggle = true
+                                    }
 
-                                if (
-                                    dragAmount < 0 &&
-                                    revealingLayoutHeight < minDragHeightToReveal &&
-                                    revealStateToggle != null
-                                ) {
-                                    revealStateToggle = false
+                                    if (
+                                        dragAmount < 0 &&
+                                        revealingLayoutHeight < minDragHeightToReveal &&
+                                        revealStateToggle != null
+                                    ) {
+                                        revealStateToggle = false
+                                    }
                                 }
 
                             } else if (isAfterRevealed) {
