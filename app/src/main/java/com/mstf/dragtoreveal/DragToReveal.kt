@@ -9,6 +9,7 @@ import android.os.VibratorManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -60,7 +61,9 @@ import kotlin.math.pow
 @Composable
 fun DragToReveal(
     modifier: Modifier = Modifier,
-    instructionTextColor: Color = Color.White,
+    instructionBackgroundColor: Color = Color.Gray,
+    hiddenContentBackgroundColor: Color = Color.LightGray,
+    instructionTextColor: Color = Color.Black,
     instructionSwipingText: String,
     instructionReleaseText: String,
     maxRevealedLayoutHeight: Dp = 350.dp,
@@ -125,6 +128,11 @@ fun DragToReveal(
                 isContentToRevealHeightMeasured = true
             }) { contentToReveal() }
     }
+
+    val animatedBackgroundColor by animateColorAsState(
+        if (isContentRevealed) hiddenContentBackgroundColor else instructionBackgroundColor,
+        label = "background_color",
+    )
 
     // scrollable object states that are needed for checking if the scrollable objects can get scrolled or not
     val lazyListState = rememberLazyListState()
@@ -277,9 +285,7 @@ fun DragToReveal(
                     if (isDragging || isAfterRevealed) revealingLayoutHeight
                     else contentToRevealAnimatedHeight
                 )
-                // todo: get the color as a param
-                // turned the dragging background color to content background color with animation
-                .background(Color.Gray),
+                .background(animatedBackgroundColor),
             contentAlignment = if (isContentRevealed) Alignment.TopStart else Alignment.BottomCenter,
         ) {
             this@Column.AnimatedVisibility(
