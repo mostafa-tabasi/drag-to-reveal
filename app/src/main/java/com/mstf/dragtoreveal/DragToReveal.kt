@@ -148,7 +148,7 @@ fun DragToReveal(
     val lazyListState = rememberLazyListState()
     val scrollState = rememberScrollState()
 
-    val nestedScrollConnection = remember {
+    val nestedScrollConnection = remember(key1 = dragElasticityLevel) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 val dragAmount = available.y
@@ -201,93 +201,95 @@ fun DragToReveal(
     }
 
     var skipDragEventCounter by remember { mutableIntStateOf(0) }
-    val dragDetectionModifier = Modifier
-        .nestedScroll(nestedScrollConnection)
-        .pointerInput(Unit) {
-            awaitPointerEventScope {
-                while (true) {
-                    val event = awaitPointerEvent()
-                    when (event.type) {
+    val dragDetectionModifier = remember(key1 = dragElasticityLevel) {
+        Modifier
+            .nestedScroll(nestedScrollConnection)
+            .pointerInput(key1 = dragElasticityLevel) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        when (event.type) {
 
-                        PointerEventType.Press -> {
-                            isDragging = true
-                        }
+                            PointerEventType.Press -> {
+                                isDragging = true
+                            }
 
-                        PointerEventType.Release -> {
-                            skipDragEventCounter = 0
-                            isDragging = false
-                            isTouchingScrollable = false
+                            PointerEventType.Release -> {
+                                skipDragEventCounter = 0
+                                isDragging = false
+                                isTouchingScrollable = false
 
-                            if (!isAfterRevealed) {
-                                if (revealingLayoutHeight >= minDragHeightToReveal) {
-                                    isContentRevealed = true
-                                    revealingLayoutHeight = contentToRevealHeight
-                                } else {
-                                    isContentRevealed = false
-                                    revealingLayoutHeight = 0.dp
+                                if (!isAfterRevealed) {
+                                    if (revealingLayoutHeight >= minDragHeightToReveal) {
+                                        isContentRevealed = true
+                                        revealingLayoutHeight = contentToRevealHeight
+                                    } else {
+                                        isContentRevealed = false
+                                        revealingLayoutHeight = 0.dp
+                                    }
                                 }
                             }
-                        }
 
-                        PointerEventType.Move -> {
-                            val dragAmount =
-                                event.changes[0].let { it.position.y - it.previousPosition.y }
+                            PointerEventType.Move -> {
+                                val dragAmount =
+                                    event.changes[0].let { it.position.y - it.previousPosition.y }
 
-                            if (
-                            // if the hidden content is already revealed,
-                            // don't need to start revealing process
-                                !isContentRevealed &&
-                                // the drag event must come from a non-scrollable
-                                (!isTouchingScrollable || (!lazyListState.canScrollBackward && !scrollState.canScrollBackward))
-                            ) {
-                                // we skip the first 10 drag event,
-                                // to prevent revealing process with fling event
-                                if (skipDragEventCounter < 10) {
-                                    skipDragEventCounter++
-                                } else {
-                                    //start the revealing process
+                                if (
+                                // if the hidden content is already revealed,
+                                // don't need to start revealing process
+                                    !isContentRevealed &&
+                                    // the drag event must come from a non-scrollable
+                                    (!isTouchingScrollable || (!lazyListState.canScrollBackward && !scrollState.canScrollBackward))
+                                ) {
+                                    // we skip the first 10 drag event,
+                                    // to prevent revealing process with fling event
+                                    if (skipDragEventCounter < 10) {
+                                        skipDragEventCounter++
+                                    } else {
+                                        //start the revealing process
+                                        revealingLayoutHeight = (revealingLayoutHeight +
+                                                with(density) {
+                                                    dragAmount
+                                                        .div(dragElasticityLevel)
+                                                        .toDp()
+                                                }).coerceIn(0.dp, maxRevealedLayoutHeight)
+
+                                        if (
+                                            dragAmount > 0 &&
+                                            revealingLayoutHeight >= minDragHeightToReveal
+                                        ) {
+                                            revealStateToggle = true
+                                        }
+
+                                        if (
+                                            dragAmount < 0 &&
+                                            revealingLayoutHeight < minDragHeightToReveal &&
+                                            revealStateToggle != null
+                                        ) {
+                                            revealStateToggle = false
+                                        }
+                                    }
+
+                                } else if (isAfterRevealed) {
                                     revealingLayoutHeight = (revealingLayoutHeight +
-                                            with(density) {
-                                                dragAmount
-                                                    .div(dragElasticityLevel)
-                                                    .toDp()
-                                            }).coerceIn(0.dp, maxRevealedLayoutHeight)
+                                            // after the hidden layout got revealed, no need elasticity on dragging
+                                            with(density) { dragAmount.toDp() })
+                                        .coerceIn(0.dp, maxRevealedLayoutHeight)
 
-                                    if (
-                                        dragAmount > 0 &&
-                                        revealingLayoutHeight >= minDragHeightToReveal
-                                    ) {
-                                        revealStateToggle = true
+                                    // when the revealed layout is totally closed and hidden again
+                                    // we need to reset everything
+                                    if (revealingLayoutHeight <= 0.dp) {
+                                        isAfterRevealed = false
+                                        isContentRevealed = false
+                                        revealStateToggle = null
                                     }
-
-                                    if (
-                                        dragAmount < 0 &&
-                                        revealingLayoutHeight < minDragHeightToReveal &&
-                                        revealStateToggle != null
-                                    ) {
-                                        revealStateToggle = false
-                                    }
-                                }
-
-                            } else if (isAfterRevealed) {
-                                revealingLayoutHeight = (revealingLayoutHeight +
-                                        // after the hidden layout got revealed, no need elasticity on dragging
-                                        with(density) { dragAmount.toDp() })
-                                    .coerceIn(0.dp, maxRevealedLayoutHeight)
-
-                                // when the revealed layout is totally closed and hidden again
-                                // we need to reset everything
-                                if (revealingLayoutHeight <= 0.dp) {
-                                    isAfterRevealed = false
-                                    isContentRevealed = false
-                                    revealStateToggle = null
                                 }
                             }
                         }
                     }
                 }
             }
-        }
+    }
 
     Column(
         modifier = modifier.fillMaxSize(),
