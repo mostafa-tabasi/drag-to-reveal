@@ -62,11 +62,11 @@ import kotlin.math.pow
 @Composable
 fun DragToReveal(
     modifier: Modifier = Modifier,
-    instructionBackgroundColor: Color = Color.Gray,
-    hiddenContentBackgroundColor: Color = Color.LightGray,
+    instructionBackgroundColor: Color = Color.LightGray,
+    revealedContentBackgroundColor: Color = Color.LightGray.copy(alpha = 0.5f),
     instructionTextColor: Color = Color.Black,
-    instructionSwipingText: String,
-    instructionReleaseText: String,
+    instructionSwipingText: String = "Swipe down to reveal",
+    instructionReleaseText: String = "Release to reveal",
     minDragHeightToReveal: Dp = 75.dp,
     maxRevealedLayoutHeight: Dp = 350.dp,
     dragElasticityLevel: Float = 4f,
@@ -140,7 +140,7 @@ fun DragToReveal(
     }
 
     val animatedBackgroundColor by animateColorAsState(
-        if (isContentRevealed) hiddenContentBackgroundColor else instructionBackgroundColor,
+        if (isContentRevealed) revealedContentBackgroundColor else instructionBackgroundColor,
         label = "background_color",
     )
 
@@ -201,10 +201,10 @@ fun DragToReveal(
     }
 
     var skipDragEventCounter by remember { mutableIntStateOf(0) }
-    val dragDetectionModifier = remember(key1 = dragElasticityLevel) {
+    val dragDetectionModifier = remember(key1 = dragElasticityLevel, key2 = minDragHeightToReveal) {
         Modifier
             .nestedScroll(nestedScrollConnection)
-            .pointerInput(key1 = dragElasticityLevel) {
+            .pointerInput(key1 = dragElasticityLevel, key2 = minDragHeightToReveal) {
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
