@@ -123,9 +123,7 @@ fun DragToReveal(
         finishedListener = {
             // set isAfterRevealed to true after the revealing animation is done,
             // so we can have the opening animation
-            if (revealingLayoutHeight >= maxRevealedLayoutHeight) {
-                isAfterRevealed = true
-            }
+            isAfterRevealed = isContentRevealed
         }
     )
 
@@ -166,10 +164,10 @@ fun DragToReveal(
                 val calculatedRevealingLayoutHeight: Dp
 
                 if (isAfterRevealed) {
-                    // when it is on after revealed state, we'll consume all the drag amount
-                    // when it's totally revealed or totally hidden the we won't consume any amount
+                    // when it is on after revealed state, we'll consume all the drag amount.
+                    // when it's totally revealed or totally hidden, then we won't consume any amount
                     if (revealingLayoutHeight <= 0.dp) return Offset.Zero
-                    if (revealingLayoutHeight >= maxRevealedLayoutHeight) return Offset.Zero
+                    if (revealingLayoutHeight >= contentToRevealHeight) return Offset.Zero
 
                     // calculating the amount we need to consume
                     // to prevent the scrollable layout from being scrolled
@@ -257,7 +255,7 @@ fun DragToReveal(
                                                     dragAmount
                                                         .div(dragElasticityLevel)
                                                         .toDp()
-                                                }).coerceIn(0.dp, maxRevealedLayoutHeight)
+                                                }).coerceIn(0.dp, minDragHeightToReveal + 50.dp)
 
                                         if (
                                             dragAmount > 0 &&
@@ -279,7 +277,7 @@ fun DragToReveal(
                                     revealingLayoutHeight = (revealingLayoutHeight +
                                             // after the hidden layout got revealed, no need elasticity on dragging
                                             with(density) { dragAmount.toDp() })
-                                        .coerceIn(0.dp, maxRevealedLayoutHeight)
+                                        .coerceIn(0.dp, contentToRevealHeight)
 
                                     // when the revealed layout is totally closed and hidden again
                                     // we need to reset everything
