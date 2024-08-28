@@ -72,6 +72,7 @@ fun DragToReveal(
     dragElasticityLevel: Float = 4f,
     contentToReveal: @Composable () -> Unit,
     content: @Composable (LazyListState, ScrollState) -> Unit,
+    onRevealStateChange: (Boolean) -> Unit = {},
 ) {
     require(minDragHeightToReveal >= 50.dp && minDragHeightToReveal <= 600.dp) {
         "The amount of drag to reveal the content must be between 50dp and 600dp."
@@ -143,6 +144,10 @@ fun DragToReveal(
         if (isContentRevealed) revealedContentBackgroundColor else instructionBackgroundColor,
         label = "background_color",
     )
+
+    LaunchedEffect(isContentRevealed) {
+        onRevealStateChange(isContentRevealed)
+    }
 
     // scrollable object states that are needed for checking if the scrollable objects can get scrolled or not
     val lazyListState = rememberLazyListState()
