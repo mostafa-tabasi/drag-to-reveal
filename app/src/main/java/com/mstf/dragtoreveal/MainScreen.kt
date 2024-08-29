@@ -38,9 +38,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun MainScreen(viewModel: MainViewModel = viewModel()) {
+fun MainScreen(innerPadding: PaddingValues, viewModel: MainViewModel = viewModel()) {
     Column(
-        modifier = Modifier.background(color = Color.LightGray.copy(alpha = 0.2f)),
+        modifier = Modifier
+            .background(color = Color.LightGray.copy(alpha = 0.2f))
+            .padding(
+                top = innerPadding.calculateTopPadding(),
+            ),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         val state by viewModel.uiState.collectAsState()
