@@ -11,5 +11,5 @@ Features:
 
 ##
 
-![screen_record_mp4](https://github.com/mostafa-tabasi/drag-to-reveal/blob/main/screenrecords/screen_record.mp4)
 ![screen_record_gif](https://github.com/mostafa-tabasi/drag-to-reveal/blob/main/screenrecords/screen_record.gif)
+![screen_record_mp4](https://github.com/mostafa-tabasi/drag-to-reveal/blob/main/screenrecords/screen_record.mp4)
