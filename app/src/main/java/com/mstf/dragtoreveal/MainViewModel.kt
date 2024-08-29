@@ -28,5 +28,5 @@ class MainViewModel : ViewModel() {
 data class MainState(
     val isContentRevealed: Boolean = false,
     val dragElasticityLevel: Float = 1f,
-    val minDragAmountToReveal: Dp = 1.dp,
+    val minDragAmountToReveal: Dp = 50.dp,
 )

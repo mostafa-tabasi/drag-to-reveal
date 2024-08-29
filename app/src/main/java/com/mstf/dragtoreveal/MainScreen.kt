@@ -50,20 +50,20 @@ fun MainScreen(innerPadding: PaddingValues, viewModel: MainViewModel = viewModel
         val state by viewModel.uiState.collectAsState()
 
         AdjustmentComposable(
+            description = "Min drag amount to reveal: ${state.minDragAmountToReveal.value.toInt()}dp",
+            sliderValue = state.minDragAmountToReveal.value,
+            onValueChange = { viewModel.setMinDragAmount(it) },
+            steps = 149,
+            valueRange = 50f..200f,
+            enabled = !state.isContentRevealed,
+        )
+
+        AdjustmentComposable(
             description = "Drag elasticity level: ${state.dragElasticityLevel.toInt()}",
             sliderValue = state.dragElasticityLevel,
             onValueChange = { viewModel.setElasticityLevel(it) },
             steps = 8,
             valueRange = 1f..10f,
-            enabled = !state.isContentRevealed,
-        )
-
-        AdjustmentComposable(
-            description = "Min drag amount to reveal: ${state.minDragAmountToReveal.value.toInt()}dp",
-            sliderValue = state.minDragAmountToReveal.value,
-            onValueChange = { viewModel.setMinDragAmount(it) },
-            steps = 199,
-            valueRange = 1f..200f,
             enabled = !state.isContentRevealed,
         )
 

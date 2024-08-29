@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -58,6 +59,33 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.pow
 
 
+/**
+ * A Composable function that provides a swipe-down gesture to reveal hidden content.
+ *
+ * @param modifier A [Modifier] to be applied to the DragToReveal composable.
+ * @param instructionBackgroundColor The background color of the instruction layout shown while
+ * swiping down, before the hidden content is revealed. Default is [Color.LightGray].
+ * @param revealedContentBackgroundColor The background color of the content to reveal after
+ * sufficient swiping down. Default is [Color.LightGray] with 50% opacity.
+ * @param instructionTextColor The color of the text in the instruction layout. Default is [Color.Black].
+ * @param instructionSwipingText The instruction text shown while swiping down but before the hidden
+ * content is revealed. Default is "Swipe down to reveal".
+ * @param instructionReleaseText The instruction text shown when the user has swiped down far enough
+ * to reveal the hidden content. Default is "Release to reveal".
+ * @param minDragHeightToReveal The minimum drag height in dp required to reveal the hidden content.
+ * This value must be between 50.dp and 600.dp. Default is 75.dp.
+ * @param maxRevealedLayoutHeight The maximum height in dp for the revealed layout after the swipe
+ * is complete. This value must be between 50.dp and 600.dp. Default is 350.dp.
+ * @param dragElasticityLevel The elasticity level of the swipe gesture. Higher values make swiping
+ * down harder. Default is 4f.
+ * @param contentToReveal A composable that is hidden by default and revealed after swiping
+ * down sufficiently.
+ * @param content A composable that is always visible. It must have a [Column] or [LazyColumn] as
+ * the parent composable. The function provides a [LazyListState] and [ScrollState] to be used
+ * depending on the parent composable.
+ * @param onRevealStateChange A callback function that triggers when the revealing state changes
+ * (true if content is revealed, false otherwise). Default is an empty function.
+ */
 @SuppressLint("ReturnFromAwaitPointerEventScope")
 @Composable
 fun DragToReveal(
@@ -77,7 +105,7 @@ fun DragToReveal(
     require(minDragHeightToReveal >= 50.dp && minDragHeightToReveal <= 600.dp) {
         "The amount of drag to reveal the content must be between 50dp and 600dp."
     }
-    require(maxRevealedLayoutHeight <= 600.dp && maxRevealedLayoutHeight >= 50.dp) {
+    require(maxRevealedLayoutHeight >= 50.dp && maxRevealedLayoutHeight <= 600.dp) {
         "The amount of height for revealed content must be between 50dp and 600dp."
     }
     require(dragElasticityLevel >= 1f) {
@@ -204,10 +232,20 @@ fun DragToReveal(
     }
 
     var skipDragEventCounter by remember { mutableIntStateOf(0) }
-    val dragDetectionModifier = remember(key1 = dragElasticityLevel, key2 = minDragHeightToReveal) {
+    val dragDetectionModifier = remember(
+        keys = arrayOf(
+            dragElasticityLevel,
+            minDragHeightToReveal,
+        ),
+    ) {
         Modifier
             .nestedScroll(nestedScrollConnection)
-            .pointerInput(key1 = dragElasticityLevel, key2 = minDragHeightToReveal) {
+            .pointerInput(
+                keys = arrayOf(
+                    dragElasticityLevel,
+                    minDragHeightToReveal,
+                )
+            ) {
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
