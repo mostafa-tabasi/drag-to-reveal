@@ -77,7 +77,7 @@ import kotlin.math.pow
  * @param maxRevealedLayoutHeight The maximum height in dp for the revealed layout after the swipe
  * is complete. This value must be between 50.dp and 600.dp. Default is 350.dp.
  * @param dragElasticityLevel The elasticity level of the swipe gesture. Higher values make swiping
- * down harder. Default is 4f.
+ * down harder. This value must be more than or equal 1f. Default is 4f.
  * @param contentToReveal A composable that is hidden by default and revealed after swiping
  * down sufficiently.
  * @param content A composable that is always visible. It must have a [Column] or [LazyColumn] as
