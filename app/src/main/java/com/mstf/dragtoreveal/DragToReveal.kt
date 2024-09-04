@@ -54,6 +54,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import kotlin.math.pow
@@ -115,15 +116,7 @@ fun DragToReveal(
     val context = LocalContext.current
     val density = LocalDensity.current
 
-    val vibrator = remember {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibratorManager =
-                context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-            vibratorManager.defaultVibrator
-        } else {
-            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        }
-    }
+    val vibrator = remember { vibratorService(context) }
 
     // a toggle for changing reveal state
     // shows that the user dragged enough to reveal the hidden content
@@ -155,17 +148,6 @@ fun DragToReveal(
         }
     )
 
-    // Draw the content that needs to be revealed only once to measure the height (this can't be seen)
-    if (!isContentToRevealHeightMeasured) {
-        Box(modifier = Modifier
-            // the maximum height considered for the revealed hidden layout
-            .heightIn(min = 0.dp, max = maxRevealedLayoutHeight)
-            .onSizeChanged {
-                contentToRevealHeight = with(density) { it.height.toDp() }
-                isContentToRevealHeightMeasured = true
-            }) { contentToReveal() }
-    }
-
     val animatedBackgroundColor by animateColorAsState(
         if (isContentRevealed) revealedContentBackgroundColor else instructionBackgroundColor,
         label = "background_color",
@@ -178,6 +160,18 @@ fun DragToReveal(
     // scrollable object states that are needed for checking if the scrollable objects can get scrolled or not
     val lazyListState = rememberLazyListState()
     val scrollState = rememberScrollState()
+
+    // Draw the content that needs to be revealed only once to measure the height (this can't be seen)
+    if (!isContentToRevealHeightMeasured) {
+        HiddenLayoutForMeasuring(
+            maxRevealedLayoutHeight,
+            contentToReveal,
+            onSizeChanged = {
+                contentToRevealHeight = with(density) { it.height.toDp() }
+                isContentToRevealHeightMeasured = true
+            }
+        )
+    }
 
     val nestedScrollConnection = remember(key1 = dragElasticityLevel) {
         object : NestedScrollConnection {
@@ -356,47 +350,19 @@ fun DragToReveal(
             }
 
             if (!isContentRevealed) {
-                // instruction text composable
-                AnimatedContent(
-                    targetState = if (revealingLayoutHeight < minDragHeightToReveal)
-                        instructionSwipingText else instructionReleaseText,
-                    transitionSpec = {
-                        if (targetState == instructionReleaseText) {
-                            // If the target text is the instruction release text, it slides up and fades in
-                            // while the initial text (instruction swiping text) slides up and fades out.
-                            slideInVertically { height -> height } + fadeIn(tween(500)) togetherWith
-                                    slideOutVertically { height -> -height } + fadeOut(tween(200))
-                        } else {
-                            // If the target text is the instruction swiping text, it slides down and fades in
-                            // while the initial text (instruction release text) slides down and fades out.
-                            slideInVertically { height -> -height } + fadeIn(tween(500)) togetherWith
-                                    slideOutVertically { height -> height } + fadeOut(tween(100))
-                        }.using(
-                            // Disable clipping since the faded slide-in/out should be displayed out of bounds.
-                            SizeTransform(clip = false)
-                        )
-                    },
-                    label = "instruction_text",
-                ) { target ->
-                    Text(
-                        text = target,
-                        modifier = Modifier
-                            .padding(bottom = 8.dp)
-                            .fillMaxWidth()
-                            .graphicsLayer {
-                                alpha = powerCurveInterpolate(
-                                    0f,
-                                    1f,
-                                    (revealingLayoutHeight / minDragHeightToReveal.div(1.2f))
-                                        .coerceIn(0f, 1f),
-                                    4f,
-                                )
-                            },
-                        textAlign = TextAlign.Center,
-                        color = instructionTextColor,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
+                InstructionTextComposable(
+                    swipingText = instructionSwipingText,
+                    releaseText = instructionReleaseText,
+                    textColor = instructionTextColor,
+                    textVisibilityAlpha = powerCurveInterpolate(
+                        0f,
+                        1f,
+                        (revealingLayoutHeight / minDragHeightToReveal.div(1.2f))
+                            .coerceIn(0f, 1f),
+                        4f,
+                    ),
+                    hasDraggedEnough = revealStateToggle == true,
+                )
             }
         }
 
@@ -408,6 +374,15 @@ fun DragToReveal(
         ) { content(lazyListState, scrollState) }
     }
 }
+
+private fun vibratorService(context: Context) =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val vibratorManager =
+            context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+        vibratorManager.defaultVibrator
+    } else {
+        context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+    }
 
 private fun vibrate(revealStateToggle: Boolean?, vibrator: Vibrator) {
     if (revealStateToggle == null) return
@@ -423,4 +398,60 @@ private fun vibrate(revealStateToggle: Boolean?, vibrator: Vibrator) {
 
 fun powerCurveInterpolate(start: Float, end: Float, t: Float, power: Float): Float {
     return (start + (end - start) * t.pow(power))
+}
+
+@Composable
+private fun HiddenLayoutForMeasuring(
+    maxRevealedLayoutHeight: Dp,
+    contentToReveal: @Composable () -> Unit,
+    onSizeChanged: (IntSize) -> Unit,
+) {
+    Box(modifier = Modifier
+        // the maximum height considered for the revealed hidden layout
+        .heightIn(min = 0.dp, max = maxRevealedLayoutHeight)
+        .onSizeChanged { onSizeChanged(it) }
+    ) { contentToReveal() }
+}
+
+@Composable
+private fun InstructionTextComposable(
+    swipingText: String,
+    releaseText: String,
+    textColor: Color,
+    textVisibilityAlpha: Float,
+    hasDraggedEnough: Boolean,
+) {
+    AnimatedContent(
+        targetState = if (hasDraggedEnough) releaseText else swipingText,
+        transitionSpec = {
+            if (targetState == releaseText) {
+                // If the target text is the instruction release text, it slides up and fades in
+                // while the initial text (instruction swiping text) slides up and fades out.
+                slideInVertically { height -> height } + fadeIn(tween(500)) togetherWith
+                        slideOutVertically { height -> -height } + fadeOut(tween(200))
+            } else {
+                // If the target text is the instruction swiping text, it slides down and fades in
+                // while the initial text (instruction release text) slides down and fades out.
+                slideInVertically { height -> -height } + fadeIn(tween(500)) togetherWith
+                        slideOutVertically { height -> height } + fadeOut(tween(100))
+            }.using(
+                // Disable clipping since the faded slide-in/out should be displayed out of bounds.
+                SizeTransform(clip = false)
+            )
+        },
+        label = "instruction_text",
+    ) { target ->
+        Text(
+            text = target,
+            modifier = Modifier
+                .padding(bottom = 8.dp)
+                .fillMaxWidth()
+                .graphicsLayer {
+                    alpha = textVisibilityAlpha
+                },
+            textAlign = TextAlign.Center,
+            color = textColor,
+            fontWeight = FontWeight.Bold,
+        )
+    }
 }
